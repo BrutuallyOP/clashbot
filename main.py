@@ -3,14 +3,12 @@ from dotenv import load_dotenv
 import discord
 from discord import app_commands
 from discord.ext import commands
-from google.genai.errors import APIError, ClientError
-from src.wordy import WordyGame
+from src.utils import BaseUi
 import logging
 from logging.handlers import RotatingFileHandler
 import os
-from ratelimit import RateLimitException
 
-load_dotenv()
+load_dotenv("./actual.env")
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
@@ -60,7 +58,7 @@ class CustomBot(commands.Bot):
         intents.members = True
         intents.message_content = True
         intents.messages = True
-        game_activity = discord.Game(name="with your Mom 😇")
+        game_activity = discord.Game(name="Clashing with queen...😏")
 
         super().__init__(
             command_prefix="!",
@@ -71,18 +69,16 @@ class CustomBot(commands.Bot):
         )
         self.tree.error(self.on_app_command_error)
 
-        self.wordy_games: dict[int, WordyGame] = {}
-
     async def on_ready(self):
         logger.info(f"Logged in successfully as {self.user} (ID: {self.user.id})")
 
-    async def setup_hook(self):
-        for filename in os.listdir("./cogs"):
-            if filename.endswith(".py") and not filename.startswith("__"):
-                await self.load_extension(f"cogs.{filename[:-3]}")
-        logger.info("Syncing slash commands...")
-        synced = await self.tree.sync()
-        logger.info(f"Synced {len(synced)} command(s).")
+    # async def setup_hook(self):
+    #     for filename in os.listdir("./cogs"):
+    #         if filename.endswith(".py") and not filename.startswith("__"):
+    #             await self.load_extension(f"cogs.{filename[:-3]}")
+    #     logger.info("Syncing slash commands...")
+    #     synced = await self.tree.sync()
+    #     logger.info(f"Synced {len(synced)} command(s).")
 
     async def on_app_command_error(
         self, interaction: discord.Interaction, error: app_commands.AppCommandError
@@ -110,18 +106,6 @@ class CustomBot(commands.Bot):
                 f"Bot missing permissions for {command_name} in channel #{interaction.channel}: {error.missing_permissions}"
             )
 
-        elif isinstance(original_err, RateLimitException):
-            msg = f"Oops! You are being rate-limited. Retry after **{round(original_err.period_remaining, 1)}** seconds."
-            logger.warning(
-                f"Rate limit hit by {interaction.user} in command {command_name}"
-            )
-
-        elif isinstance(original_err, (APIError, ClientError)):
-            msg = f"Oops! An API error was caught : {original_err.code} {original_err.status}"
-            logger.error(
-                f"API Error in {command_name}: {original_err}",
-                exc_info=original_err,
-            )
         else:
             msg = f"Oops! An unexpected error occurred: {original_err}"
             logger.error(
@@ -141,6 +125,41 @@ class CustomBot(commands.Bot):
 
 
 bot = CustomBot()
+
+
+@bot.event
+async def on_message(message: discord.Message):
+    if message.guild or not message.author.bot and message.content:
+        content = message.content.strip()
+        link = None
+        subcontent = content.split()
+        for part in subcontent:
+            if part.startswith(
+                (
+                    "https://link.clashofclans.com/en?action=OpenLayout",
+                    "https://link.clashofclans.com/en/?action=OpenLayout",
+                )
+            ):
+                link = subcontent.pop(subcontent.index(part))
+                break
+
+        if not link:
+            return
+
+        media = message.attachments
+        files = []
+        for attachment in media:
+            file = await attachment.to_file()
+            files.append(file)
+
+        content = " ".join(subcontent)
+        try:
+            await message.channel.send(content=content, files=files, view=BaseUi(link))
+        except Exception as e:
+            print(f"{e}")
+            return
+
+        await message.delete()
 
 
 bot.run((os.getenv("DISCORD_SECRET")))

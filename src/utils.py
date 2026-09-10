@@ -1,3 +1,4 @@
+import discord
 import logging
 import os
 
@@ -39,3 +40,23 @@ def remove_whitelisted_user(user_id: str) -> bool:
             f.write(f"{user}\n")
 
     return True
+
+
+class BaseUi(discord.ui.View):
+    def __init__(self, baseurl):
+        super().__init__()
+
+        self.add_item(
+            discord.ui.Button(
+                label="🔗Link", style=discord.ButtonStyle.primary, url=baseurl
+            )
+        )
+
+        self.add_item(
+            discord.ui.Button(
+                label="{❓} Downloads",
+                style=discord.ButtonStyle.secondary,
+                custom_id="count",
+                disabled=True,
+            )
+        )

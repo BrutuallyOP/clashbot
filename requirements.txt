@@ -1,9 +1,5 @@
 black
 discord.py
 flask
-google-genai
 gunicorn
-pillow
 python-dotenv
-ratelimit
-yt-dlp[default,curl-cffi]
