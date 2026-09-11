@@ -129,7 +129,7 @@ bot = CustomBot()
 
 @bot.event
 async def on_message(message: discord.Message):
-    if message.guild or not message.author.bot and message.content:
+    if message.guild and not message.author.bot and message.content:
         content = message.content.strip()
         link = None
         subcontent = content.split()
@@ -156,10 +156,16 @@ async def on_message(message: discord.Message):
         try:
             await message.channel.send(content=content, files=files, view=BaseUi(link))
         except Exception as e:
-            print(f"{e}")
+            logger.warning("Excepting in sending message", exc_info=e)
             return
 
-        await message.delete()
-
+        try:
+            await message.delete()
+        except discord.NotFound:
+            logger.warning("Message already deleted")
+        except discord.Forbidden:
+            logger.warning(f"No permission to delete message {message.id}")
+        except discord.HTTPException as e:
+            logger.warning(f"Failed to delete message {message.id}{e}")
 
 bot.run((os.getenv("DISCORD_SECRET")))
