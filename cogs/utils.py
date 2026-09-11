@@ -1,12 +1,9 @@
 from __future__ import annotations
 from src.__version__ import *
-import asyncio
 import discord
 from discord import app_commands
 from discord.ext import commands
 import logging
-from src.gemini import *
-from src.media_utils import bg_extractor
 from typing import TYPE_CHECKING
 
 logger = logging.getLogger(__name__)
@@ -29,53 +26,9 @@ class Utility(commands.Cog):
         name="version", description="Bot's version and What's New? info"
     )
     async def version(self, interaction: discord.Interaction):
-        await interaction.response.send_message(f"""
-            This instance of bot is running `v{VERSION_INFO}` !\n{WHATS_NEW}
-            """)
-
-    @app_commands.command(name="ask", description="Ask questions to the AI underlords")
-    @app_commands.describe(text="Type your question here")
-    async def ask(self, interaction: discord.Interaction, text: str):
-        if len(text) > 500:
-            await interaction.response.send_message(
-                "Your question must be under 500 characters.",
-                ephemeral=True,
-                delete_after=10,
-            )
-            return
-        logger.info(
-            f"User: {interaction.user} ID: {interaction.user.id} issued /ask with query: '{text}'"
+        await interaction.response.send_message(
+            f"This instance of bot is running `v{VERSION_INFO}` !\n"
         )
-        await interaction.response.defer(thinking=True)
-        response = await asyncio.to_thread(generative_response, str(text))
-        await interaction.edit_original_response(content=response)
-
-    @app_commands.command(
-        name="search", description="Smart search with up-to-date info, LLM powered"
-    )
-    @app_commands.describe(text="Type your query here")
-    async def search(self, interaction: discord.Interaction, text: str):
-        if len(text) > 500:
-            await interaction.response.send_message(
-                "Your question must be under 500 characters.",
-                ephemeral=True,
-                delete_after=10,
-            )
-            return
-
-        logger.info(
-            f"User: {interaction.user} ID: {interaction.user.id} issued /search with query: '{text}'"
-        )
-        await interaction.response.defer(thinking=True)
-        response = await asyncio.to_thread(generative_search, str(text))
-        await interaction.edit_original_response(content=response)
-
-    @app_commands.command(name="insta", description="Share reels from Instagram")
-    @app_commands.describe(link="Reel link to share")
-    async def insta(self, interaction: discord.Interaction, link: str):
-        await interaction.response.send_message(content=f":white_check_mark: Queued!")
-
-        asyncio.create_task(bg_extractor(interaction, link))
 
 
 async def setup(bot: CustomBot):
