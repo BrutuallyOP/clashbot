@@ -9,3 +9,4 @@ test/*
 *.log.*
 __config.py
 data/downloads/stage1/
+*.db

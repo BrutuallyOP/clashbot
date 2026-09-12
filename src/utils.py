@@ -42,21 +42,63 @@ def remove_whitelisted_user(user_id: str) -> bool:
     return True
 
 
-class BaseUi(discord.ui.View):
-    def __init__(self, baseurl):
-        super().__init__()
+class LinkUi(discord.ui.View):
+    def __init__(self, link: str):
+        super().__init__(timeout=None)
 
-        self.add_item(
-            discord.ui.Button(
-                label="🔗Link", style=discord.ButtonStyle.primary, url=baseurl
-            )
+        final_link_button = discord.ui.Button(
+            label="🔗 Link",
+            style=discord.ButtonStyle.link,
+            url=link,
         )
+        
+        self.add_item(final_link_button)
+
+
+class BaseUi(discord.ui.View):
+    def __init__(self, downloads: int = 0):
+        super().__init__(timeout=None)
+
+        self.downloads = downloads
+
+        link_button = discord.ui.Button(
+            label="📥 Get Link",
+            style=discord.ButtonStyle.primary,
+            custom_id="download_link",
+        )
+        link_button.callback = self.send_link
+        self.add_item(link_button)
 
         self.add_item(
             discord.ui.Button(
-                label="{❓} Downloads",
+                label=f"📈 {downloads} Downloads",
                 style=discord.ButtonStyle.secondary,
-                custom_id="count",
+                custom_id="download_count",
                 disabled=True,
             )
         )
+
+    async def send_link(self, interaction: discord.Interaction):
+        from src import database as db
+
+        # ACK Discord immediately
+        await interaction.response.defer(ephemeral=True)
+
+        result = await db.record_download(interaction.message.id)
+
+        if result is None:
+            await interaction.followup.send(
+                "This link is no longer available.",
+                ephemeral=True,
+            )
+            return
+
+        count, url = result
+
+        await interaction.followup.send(
+            ephemeral=True,
+            view=LinkUi(url),
+            suppress_embeds=True            
+        )
+
+        await interaction.message.edit(view=BaseUi(count))

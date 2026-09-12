@@ -1,20 +1,22 @@
 import aiosqlite
+from contextlib import asynccontextmanager
 from pathlib import Path
 
 DATABASE_PATH = Path("./data/links.db")
 
 
-async def connect() -> aiosqlite.Connection:
-    connection = await aiosqlite.connect(DATABASE_PATH)
-    await connection.execute("PRAGMA journal_mode=WAL")
-    await connection.execute("PRAGMA busy_timeout=5000")
-    return connection
+@asynccontextmanager
+async def connect():
+    async with aiosqlite.connect(DATABASE_PATH) as connection:
+        await connection.execute("PRAGMA busy_timeout=5000")
+        yield connection
 
 
 async def initialize_database():
     DATABASE_PATH.parent.mkdir(parents=True, exist_ok=True)
 
-    async with await connect() as connection:
+    async with connect() as connection:
+        await connection.execute("PRAGMA journal_mode=WAL")
         await connection.execute("""
             CREATE TABLE IF NOT EXISTS links (
                 message_id INTEGER PRIMARY KEY,
@@ -29,7 +31,7 @@ async def initialize_database():
 
 
 async def create_link(message_id: int, channel_id: int, url: str) -> None:
-    async with await connect() as connection:
+    async with connect() as connection:
         await connection.execute(
             """
             INSERT INTO links (message_id, channel_id, url)
@@ -41,7 +43,7 @@ async def create_link(message_id: int, channel_id: int, url: str) -> None:
 
 
 async def record_download(message_id: int) -> tuple[int, str] | None:
-    async with await connect() as connection:
+    async with connect() as connection:
         async with connection.execute(
             """
             UPDATE links

@@ -3,12 +3,15 @@ from dotenv import load_dotenv
 import discord
 from discord import app_commands
 from discord.ext import commands
-from src.utils import BaseUi
 import logging
 from logging.handlers import RotatingFileHandler
 import os
+from src.utils import BaseUi
+import src.database as db
+import uuid
 
 load_dotenv("./actual.env")
+os.makedirs("./data/downloads", exist_ok=True)
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
@@ -72,13 +75,19 @@ class CustomBot(commands.Bot):
     async def on_ready(self):
         logger.info(f"Logged in successfully as {self.user} (ID: {self.user.id})")
 
-    # async def setup_hook(self):
-    #     for filename in os.listdir("./cogs"):
-    #         if filename.endswith(".py") and not filename.startswith("__"):
-    #             await self.load_extension(f"cogs.{filename[:-3]}")
-    #     logger.info("Syncing slash commands...")
-    #     synced = await self.tree.sync()
-    #     logger.info(f"Synced {len(synced)} command(s).")
+    async def setup_hook(self):
+        for filename in os.listdir("./cogs"):
+            if filename.endswith(".py") and not filename.startswith("__"):
+                await self.load_extension(f"cogs.{filename[:-3]}")
+        logger.info("Syncing slash commands...")
+        synced = await self.tree.sync()
+        logger.info("Connecting to DB...")
+        try:
+            self.add_view(BaseUi())
+        except Exception as e:
+            logger.exception("Failed to add view", exc_info=e)
+        await db.initialize_database()
+        logger.info(f"Synced {len(synced)} command(s).")
 
     async def on_app_command_error(
         self, interaction: discord.Interaction, error: app_commands.AppCommandError
@@ -143,18 +152,31 @@ async def on_message(message: discord.Message):
                 link = subcontent.pop(subcontent.index(part))
                 break
 
-        if not link:
+        if link is None:
             return
 
         media = message.attachments
         files = []
+        paths = []
+
         for attachment in media:
-            file = await attachment.to_file()
-            files.append(file)
+            name, ext = os.path.splitext(attachment.filename)
+            name = name[:10]
+            filename = f"{name}_{uuid.uuid4().hex[:8]}{ext}"
+            path = os.path.join("./data/downloads", filename)
+            bytes_saved = await attachment.save(path, use_cached=True)
+            if bytes_saved > 0:
+                paths.append(path)    
+                files.append(discord.File(path, filename))            
+            else:
+                logger.warning(f"File didn't save! {bytes_saved} bytes saved...")
 
         content = " ".join(subcontent)
         try:
-            await message.channel.send(content=content, files=files, view=BaseUi(link))
+            sent_message = await message.channel.send(
+                content=content, files=files, view=BaseUi()
+            )
+            await db.create_link(sent_message.id, sent_message.channel.id, link)
         except Exception as e:
             logger.warning("Excepting in sending message", exc_info=e)
             return
@@ -162,10 +184,16 @@ async def on_message(message: discord.Message):
         try:
             await message.delete()
         except discord.NotFound:
-            logger.warning("Message already deleted")
+            logger.warning("Message not found (already deleted)")
         except discord.Forbidden:
             logger.warning(f"No permission to delete message {message.id}")
         except discord.HTTPException as e:
             logger.warning(f"Failed to delete message {message.id}{e}")
+        finally:
+            for path in paths:
+                try:
+                    os.remove(path)
+                except (OSError, AttributeError):
+                    pass
 
 bot.run((os.getenv("DISCORD_SECRET")))
