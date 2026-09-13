@@ -166,8 +166,8 @@ async def on_message(message: discord.Message):
             path = os.path.join("./data/downloads", filename)
             bytes_saved = await attachment.save(path, use_cached=True)
             if bytes_saved > 0:
-                paths.append(path)    
-                files.append(discord.File(path, filename))            
+                paths.append(path)
+                files.append(discord.File(path, filename))
             else:
                 logger.warning(f"File didn't save! {bytes_saved} bytes saved...")
 
@@ -195,5 +195,6 @@ async def on_message(message: discord.Message):
                     os.remove(path)
                 except (OSError, AttributeError):
                     pass
+
 
 bot.run((os.getenv("DISCORD_SECRET")))

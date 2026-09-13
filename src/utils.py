@@ -1,6 +1,7 @@
 import discord
 import logging
 import os
+import src.database as db
 
 logger = logging.getLogger(__name__)
 APPROVED_FILE = "./data/approved.txt"
@@ -51,7 +52,7 @@ class LinkUi(discord.ui.View):
             style=discord.ButtonStyle.link,
             url=link,
         )
-        
+
         self.add_item(final_link_button)
 
 
@@ -69,22 +70,20 @@ class BaseUi(discord.ui.View):
         link_button.callback = self.send_link
         self.add_item(link_button)
 
-        self.add_item(
-            discord.ui.Button(
-                label=f"📈 {downloads} Downloads",
-                style=discord.ButtonStyle.secondary,
-                custom_id="download_count",
-                disabled=True,
-            )
+        download_counter = discord.ui.Button(
+            label=f"📈 {downloads} Downloads",
+            style=discord.ButtonStyle.grey,
+            custom_id="download_count",
+            # disabled=True,
         )
+        download_counter.callback = self.send_downloads
+        self.add_item(download_counter)
 
     async def send_link(self, interaction: discord.Interaction):
-        from src import database as db
 
         # ACK Discord immediately
         await interaction.response.defer(ephemeral=True)
-
-        result = await db.record_download(interaction.message.id)
+        result = await db.record_download(interaction)
 
         if result is None:
             await interaction.followup.send(
@@ -96,9 +95,29 @@ class BaseUi(discord.ui.View):
         count, url = result
 
         await interaction.followup.send(
-            ephemeral=True,
-            view=LinkUi(url),
-            suppress_embeds=True            
+            ephemeral=True, view=LinkUi(url), suppress_embeds=True
         )
 
         await interaction.message.edit(view=BaseUi(count))
+
+    async def send_downloads(self, interaction: discord.Interaction):
+
+        await interaction.response.defer(ephemeral=True)
+        is_admin = interaction.user.guild_permissions.administrator
+
+        if is_admin or is_user_approved(str(interaction.user.id)):
+            result = await db.send_downloads(interaction)
+
+        else:
+            await interaction.followup.send(
+                "This is only available for admins!", ephemeral=True
+            )
+            return
+
+        if len(result) > 0:
+            name_pings = f"Unique users:{len(result)}\n<@{">\n<@".join(result)}>"
+
+        else:
+            name_pings = f"No tracked users for this..."
+
+        await interaction.followup.send(content=name_pings[:2000], ephemeral=True)
