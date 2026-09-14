@@ -6,6 +6,7 @@ from discord.ext import commands
 import logging
 from logging.handlers import RotatingFileHandler
 import os
+from src.config import SUPPORTED_LANGS
 from src.utils import BaseUi
 import src.database as db
 import uuid
@@ -71,6 +72,9 @@ class CustomBot(commands.Bot):
             status=discord.Status.online,
         )
         self.tree.error(self.on_app_command_error)
+
+        self.supported_links = [f"https://link.clashofclans.com/{lang}/?action=OpenLayout" for lang in SUPPORTED_LANGS]
+        self.supported_links.extend([f"https://link.clashofclans.com/{lang}?action=OpenLayout" for lang in SUPPORTED_LANGS])
 
     async def on_ready(self):
         logger.info(f"Logged in successfully as {self.user} (ID: {self.user.id})")
@@ -143,12 +147,7 @@ async def on_message(message: discord.Message):
         link = None
         subcontent = content.split()
         for part in subcontent:
-            if part.startswith(
-                (
-                    "https://link.clashofclans.com/en?action=OpenLayout",
-                    "https://link.clashofclans.com/en/?action=OpenLayout",
-                )
-            ):
+            if part.startswith(tuple(bot.supported_links)):
                 link = subcontent.pop(subcontent.index(part))
                 break
 
