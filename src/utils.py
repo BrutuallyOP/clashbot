@@ -95,7 +95,13 @@ class BaseUi(discord.ui.View):
         count, url = result
 
         await interaction.followup.send(
-            ephemeral=True, view=LinkUi(url), suppress_embeds=True
+            content=f"""
+                To copy URL on mobile app, click on the URL below :point_down:\n`{url}`\n
+                \n:point_down:To open URL directly, use the Link button below.
+            """,
+            ephemeral=True,
+            view=LinkUi(url),
+            suppress_embeds=True,
         )
 
         await interaction.message.edit(view=BaseUi(count))
