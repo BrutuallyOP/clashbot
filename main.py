@@ -73,8 +73,16 @@ class CustomBot(commands.Bot):
         )
         self.tree.error(self.on_app_command_error)
 
-        self.supported_links = [f"https://link.clashofclans.com/{lang}/?action=OpenLayout" for lang in SUPPORTED_LANGS]
-        self.supported_links.extend([f"https://link.clashofclans.com/{lang}?action=OpenLayout" for lang in SUPPORTED_LANGS])
+        self.supported_links = [
+            f"https://link.clashofclans.com/{lang}/?action=OpenLayout"
+            for lang in SUPPORTED_LANGS
+        ]
+        self.supported_links.extend(
+            [
+                f"https://link.clashofclans.com/{lang}?action=OpenLayout"
+                for lang in SUPPORTED_LANGS
+            ]
+        )
 
     async def on_ready(self):
         logger.info(f"Logged in successfully as {self.user} (ID: {self.user.id})")
@@ -163,7 +171,21 @@ async def on_message(message: discord.Message):
             name = name[:10]
             filename = f"{name}_{uuid.uuid4().hex[:8]}{ext}"
             path = os.path.join("./data/downloads", filename)
-            bytes_saved = await attachment.save(path, use_cached=True)
+            try:
+                bytes_saved = await attachment.save(path, use_cached=True)
+            except discord.NotFound as e:
+                logger.error(
+                    f"Attachment not found:{message.guild.name}{message.channel.name}"
+                )
+                try:
+                    await message.channel.send(
+                        content="Message disappeared before processing😶",
+                        delete_after=10,
+                    )
+                except:
+                    pass
+            except:
+                logger.warning(f"Attachment.save failed!\n", exc_info=e)
             if bytes_saved > 0:
                 paths.append(path)
                 files.append(discord.File(path, filename))
