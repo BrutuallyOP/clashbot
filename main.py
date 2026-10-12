@@ -59,8 +59,8 @@ logger.info("Startin up...")
 class CustomBot(commands.Bot):
     def __init__(self):
         intents = discord.Intents.default()
-        intents.members = True
-        intents.message_content = True
+        # intents.members = True
+        # intents.message_content = True
         intents.messages = True
         game_activity = discord.Game(name="Clashing with queen...😏")
 
@@ -193,6 +193,8 @@ async def on_message(message: discord.Message):
                 logger.warning(f"File didn't save! {bytes_saved} bytes saved...")
 
         content = " ".join(subcontent)
+        content = content.replace(f"<@{bot.application_id}>", "")
+        
         try:
             sent_message = await message.channel.send(
                 content=content, files=files, view=BaseUi()
